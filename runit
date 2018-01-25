@@ -1,0 +1,170 @@
+#!/bin/bash
+# on VirtualBox CentOS6.4 output is as expected 
+
+function usage() {
+	echo "Usage: runit [-c] [-f procfile|Procfile] [-e envfile|.env]
+             -c: check procfile and envfile
+             -f: load the procfile
+             -e: load the envfile
+             -h: help information"
+}
+
+function verify() {
+	local file=$1
+	local mark=$2
+	local retval=0
+	[[ ! -f "${file}" ]] && echo "illegal file $file" && return 1
+	
+	# pipe是subshell,pipeline中变量是local的,无法影响global变量retval
+	# grep -vE "^[[:space:]]*#" "${file}" | grep -v "^$" | 
+	while read line; do
+		if echo "${line}" | grep -q -v "$mark"; then
+			[ "$mark" = ":" ] && echo "no_colon_command" || echo "no_equal_mark"
+			continue
+		fi
+		if [ "$mark" = "=" ]; then
+			local key="${line%%=*}" 
+			local value="${line#*=}"
+		else
+			local key="${line%%:*}"
+			local value="${line#*:}"
+		fi
+		echo "${key}" | grep -q [^a-zA-Z_] && echo "invalid_char" && retval=1
+		if [ "$mark" = "=" ]; then
+			echo "${value}" | grep -qE "[[:space:]]" && echo "value_have_space" && retval=1
+		fi
+	done < <(grep -vE "^[[:space:]]*#" "${file}" | grep -v "^$")
+	return $retval
+}
+
+function log() {
+	local proc_name="$1"
+	local command="$2"
+	local color="$3"
+	local curtime=$(date +%H:%M:%S)
+	printf "\e[1;${color}m %s %-15s | " ${curtime} ${proc_name}
+	tput sgr0
+	echo "${command}"
+	return 0
+}
+
+colornum=0
+colors=('32' '33' '34' '35' '36') # green yellow blue purple sky-blue 
+declare -a pidarr
+pidnum=0
+function run_command() {
+	local proc_name="$1"
+	local cmd="$2"
+	
+	local port=$(echo "${cmd}" | grep -e "\$PORT")
+	[[ -n "$port" ]] && [[ -z "$PORT" ]] && PORT=8080
+	
+	local color="${colors[$colornum]}"
+	bash -c "${cmd}" > >( # redirection
+		while read line; do
+			log "${proc_name}" "${line}" "${color}"
+			:;: # do nothing but delay a bit
+		done
+	) 2>&1 &
+	local bgpid=$!
+	
+	local cmd1=$(eval echo \"${cmd}\") 
+	# var in the command can be interpreted
+	
+	log "${proc_name}" "${cmd1} started with pid ${bgpid}" "${color}"
+	[[ $? -ne 0 ]] && return 1
+
+	[[ -n "$port" ]] && PORT=$(($PORT+1))
+
+	((colornum++))
+	[[ colornum -gt 4 ]] && colornum=0
+	
+	pidarr[$pidnum]=$bgpid
+	((pidnum++))
+	
+	return 0
+}
+
+function load_env_file() {
+	set -a 
+	# export environment variables later
+	
+	local filelist="$1"
+	for file in $(echo "${filelist}"); do
+		[[ -f "${file}" ]] && source "${file}"
+	done
+	return 0
+}
+
+function run_procfile() {
+	local procfile="$1"
+	[[ ! -f "${procfile}" ]] && echo "invalid procfile" && return 1
+	while read line; do
+		if echo "${line}" | grep -qv ":"; then
+			echo "illegal line"
+			continue
+		fi
+		local key="${line%%:*}"
+		local value="${line#*:}"
+		[[ -n "${key}" ]] && [[ -n "${value}" ]] && run_command "${key}" "${value}"
+		[ $? -ne 0 ] && return 1
+	done < <(grep -vE "[[:space:]]*#" "${procfile}" | grep -v "^$" ) # redirection
+
+	wait 
+	# hang until background processes are terminated
+    
+	return 0
+}
+
+function main() {
+	local check=false
+	while getopts "f:e:ch" opt
+	do
+		case $opt in
+			c) check=true ;;
+			f) procfile="${OPTARG}" ;;
+			e) envfile="${OPTARG}" ;;
+			*) usage ;;
+		esac
+	done
+
+	if $check; then 
+		if [[ -n "${procfile}" ]]; then
+			verify ${procfile} ":"
+			[ $? -ne 0 ] && exit 1 
+		else
+			echo "The procfile is absent"
+			exit 1
+		fi
+
+		if [[ -z "${envfile}" ]];then  
+			envfile="./.env"
+		fi
+		verify ${envfile} "="
+		[ $? -ne 0 ] && exit 1
+	else
+		if [[ -z "${envfile}" ]]; then
+			envfile="./.env"
+		fi
+		load_env_file "${envfile}"
+		[ $? -ne 0 ] && exit 100
+		
+		if [[ -z "${procfile}" ]]; then
+			procfile="./Procfile"
+		fi
+		run_procfile "${procfile}"
+		[[ $? -ne 0 ]] && exit 1
+	fi
+	exit 0
+}
+
+function killproc(){
+	for pid in ${pidarr[@]};do
+		kill $pid 2>/dev/null
+	done
+}
+
+trap 'killproc' INT 
+# ctrl+c cause signal INT
+
+main "$@"
