@@ -1,0 +1,912 @@
+Reading Notes of <Advanced Bash-Scripting Guide> and <Shell Style Guide>
+
+shell命令形式
+cmdname -shortopt arg1 arg2 --longopt arg1 arg2
+
+获取帮助信息
+cmd --help | grep "\-opt"
+man cmd #更详细的帮助文档 /-opt n下一个,N上一个
+man 1 passwd #1级别帮助
+man -k passwd  apropos passwd  #所有包含该关键字的帮助 
+type cmd  type -a cmd 识别keyword,builtin,外来命令
+whatis cmd 
+which cmd 查看命令文件路径 whereis cmd 查看命令文件路径和manpage
+file filename 查看文件类型
+
+ls命令
+ls path 缺省为当前目录
+ls -l long alias为ll awk可获取文件大小
+-h:size is human-readable -i:inode -F:mark file type -t:sort by modified time
+ls -l file|dir  ls -ld dir
+ls -a  ls -I file
+ls -R dir R:recursive
+
+echo命令
+echo #空行  echo -n str #结束时不输出\n
+echo "${var1} "$var1" $var1 \$var1"
+echo -e "\n \t \042" 激活转义 -E不激活,默认 echo $'\n'
+echo " \$ \" \\ '' "
+echo -e "\e[1;30m abc \e[1;0m" 颜色30,结束颜色0重置
+echo >&2 "error msg" 
+
+printf命令
+printf "%3d %1.2f" $int $decimal 右对齐:最小宽度为3个字符,不足左侧补空格 小数x.xx
+printf "\e[1;33m %s %-8s" ${s1} ${s2} 左对齐:最小宽度为8个字符,不足右侧补空格 tput sgr0
+printf "\033[32m" "op" "\033[m"  tput sgr0
+printf '\n'
+
+一些简单的文件操作命令
+cp file1 file2 #backup  cp file dir/
+cp -r dir dircopy #-a  cp -u source_dir/* dest_dir
+mv file|dir dir/ 移动
+mv file1 file2.bak 移动并重命名
+rm -f file rm -rf dir 
+touch file 创建空文件 如果文件名以-开头 touch -- -a touch ./-a  等价于: >>newfile 或>>newfile
+mktemp prefix.xxxxxx #在/tmp/创建临时文件 后缀至少6placeholders 文件名缺省为tmp.xxxxxx
+rmdir 删除空目录
+mkdir -p ~/dir1/dir2 p:parent
+
+chmod命令
+chmod 755 file|dir # r4 w2 x1
+chmod u=rwx,g=rw file  chmod a=rwx file 
+chmod u+x[,g+w,o+w] file chmod u-x[,g-w] file  chmod +x file
+options -r递归遍历子目录 
+目录的权限 在目录中可用命令 r:ls  w:touch rm mv cp  x:cd ll
+
+chattr命令
+chattr +i file # 即使root也不能删除,修改,更名文件  chattr +i dir #不能创建,删除,更名目录中文件
+chattr +a file # 即使root也只能echo xxx >>file  chattr +a dir #只能创建,修改目录中的文件
+
+ACL权限 给非u,g,o的用户分配的权限 
+df #查看分区 dumpe2fs -h /dev/mapper/VolGroup-lv_root #分区是否支持ACL Default mount options: acl 
+mount -o remount,acl / #重新挂载根分区,加入ACL 临时开启ACL权限   
+vim /etc/fstab # / defaults后加,acl  mount -o remount / #永久开启ACL权限
+setfacl -m u:uname:rx file #给用户设置ACL权限  ll file #出现+ 
+getfacl file # 实际权限effective ACL权限与mask权限对应位进行逻辑与,不作用于u,g,o
+setfacl -m m:rwx file # 设置mask权限
+setfacl -m u:uname:rx -R dir # R:递归处理,已存在的子文件和子目录获得父目录的ACL权限 
+setfacl -m d:u:uname:rw -R dir #设置默认acl权限,新建的子文件和子目录继承父目录的ACL权限
+setfacl -x u:uname file #删除指定用户acl权限 
+setfacl -b file #删除所有acl权限
+
+SUID权限 执行者执行命令时切换到文件所有者身份 chmod u+s file chmod u-s file  chmod 4775 file
+StickyBIT权限 普通用户对目录有x但只能删除自己创建的文件 chmod o+t  chmod 1755 dir  
+
+ln命令 通过链接文件访问原文件
+ln -s original-file softlink  
+ln original-file hardlink  
+
+硬链接文件 inode与原文件相同 删除原文件或硬链接不影响inode所指向的数据块,inode保存文件的物理地址 
+链接计数会增减 不能对不存在的文件创建 不能跨文件系统创建 不能对目录创建 
+软链接文件 符号链接 inode与原文件不同,指向的数据块存放原文件的位置信息 删除原文件通过软链接无法访问
+链接计数不改变 可对不存在的文件录创建 能跨文件系统创建 能对目录创建
+
+netstat -ltun  -p:pid/program
+
+basename file  dirname file
+比较两个文件的差异 comm(交集,差集),cmp,diff
+csplit file $chunksize 根据context分割文件,$chunksize指定第一个文件块大小 OUTPREFIX默认为xx
+du -b file  b以byte为单位 k:KB m:MB h:1024进制适当转换KB
+
+alias命令 查看所有命令别名
+alias ls1='ls --color=never'  unalias ls1 
+
+vim编辑器 
+yum -y install vim*  echo $TERM 
+i o:在当前行下另起一行,并变为插入模式
+Esc :w :wq :q! :15光标定位到15行 :$光标定位到最后一行
+/keyword从光标位置向后搜索 ?keyword向前 n定位到下一个keyword
+ctrl+f b 前后翻页
+yy复制光标所在行 p在光标所在行下方粘贴,P上方
+vim +n file 打开文件后光标定位到第n行,n缺省为末尾行
+vim +/keyword 打开文件后光标定位到keyword首次出现的行 按n切换到其他keyword所在行
+vim file1 file2 打开(创建)多个文件 :N前切换 :n后切换 :ls列出所有文件
+文本替换 :s/from/to/替换当前行第一个from :s/from/to/g当前行所有 :%s/from/to/g每一行中所有 
+删除行 :3d :2,18d :%d dd 
+保持格式粘贴 :set paste i 粘贴 :set nopaste
+全选复制 ggVg y
+
+一些查看文件内容的命令
+head -c 2 log 前2个字符(2bytes)
+tail -f log 追踪文件的动态更新
+head -n 3 fileName 1~3行  head -3 前3行
+tail -n 3 fileName 倒数3行
+tail -n -5 fileName 倒数第5~last行
+tail -n +3 fileName 3~last行
+cat file | head -n 399 | tail -n +300 300-399行
+cat file  -n显示行号 -s挤压多个空行成一行 -b非空行有行号,同nl file
+tac file 从尾行开始输出 rev file 每行逆序后输出
+
+less 翻页:pageup,pagedown 退出:q  
+more 前翻:enter
+
+grep命令
+grep pattern file
+显示文本中匹配到的整行 正则 
+--color匹配串显示颜色 -o只显示匹配串 -i忽略大小写 -q不输出结果只影响$?
+-n 显示行号 -c 统计匹配的行数 -z 针对于以zero-byte(null-char)而不是newline终止的行
+-w 模式为word-regexp,包含字母数字下划线,完全匹配,但允许首尾有non-word字符
+-l 只列文件名 -lZ 在每个文件名后输出zero-byte(null-char)而不是newline
+-r dir 搜索当前目录及递归遍历所有子目录
+-H 显示匹配行的文件名,多于1个文件自动启用
+-A n 打印匹配行之后尾随的n行
+-E extendedRE 同egrep egrep 'aa|bb' log # 或,不用\|
+-F fast,字面匹配不用RE 同fgrep 
+grep -vE 'Filesystem|tmpfs' v:select non-matching lines
+cat test.txt | grep -o .$  查找文件每行的最后一个字符
+cat test.txt | tail -n -1 |  grep -o .$  查找文件的最后一个字符
+echo a111b1ok | grep 'a1\+b[0-9]*[a-z]\{2\}'
+
+find命令 递归搜索子目录 
+find . -name 'my*'  find . -name 'my*' -o -iname 'Aa*' 忽略大小写
+find . -maxdepth 1 -name 'my*'  不会搜索当前目录的子目录
+find . -type f  f:regular file d:directory l:symbolic link
+find /root -nouser 无所有者的文件:/proc和/sys中内核产生的文件,U盘外来文件,应删掉的垃圾文件 -user root按所有者 
+find /var/log -mtime +10 修改时间为10天前 -10内 10当天 -atime文件访问时间 -ctime改变文件属性时间(chmod)
+find . -size 25k  小于-25k 大于+25k 还有25M
+find . -inum 22632
+find /etc -size +20k -a -size -50k  逻辑与 还有-o逻辑或
+find ... -exec ls -lh {} \; find的结果传给另一条命令,{}代替选中文件的路径
+find / -perm -4000 -o -perm -2000 查找有SUID或SGID权限的文件
+find . -type f -print0 | xargs -0 grep 123 处理文件名包含whitespace,newline,quote的文件
+-print0 打印文件路径,后接zero-byte(null-char)而不是newline 
+-depth 处理目录前先处理目录下的内容,不加-depth时先处理目录本身,影响输出顺序
+-printf "%p" 格式化输出 
+
+locate file 在数据库中搜索文件 /var/lib/mlocate/mlocate.db updatedb命令更新
+look word 在指定字典文件中查找单词
+
+history#查看内存中的历史命令 ~/.bash_history下次登陆可见之前的,history -w缓冲写入该文件
+history -c 清除  !str 执行以str开头的最近的历史命令
+
+kill命令 发送指定信号给指定进程
+kill -1 pid 平滑重启进程,重新加载配置文件 -9强制终止进程 -2保存数据,温和终止进程 缺省-15
+kill %job-number  kill -l 列举信号  
+登录用户杀不掉的进程 僵尸进程 子进程退出时,内核释放资源如占用的内存,打开的文件
+仍保留某些信息如进程号,退出状态,运行时间,但父进程未对其善后处理 zombie交由init进程清理
+
+crontab命令 cronJob(周期性任务)的列表 
+crond每分钟查询配置文件中的计划任务
+crontab -help -l查询 -r移除 -u user1针对某用户的计划任务,缺省为当前用户
+service crond status  yum install vixie-cron yum install crontabs
+crontab -e 实际编辑/var/spool/cron/root
+crontab cronjob_file  vim /etc/crontab 系统计划任务 mailTo
+*/1 * * * * date >> /tmp/log.txt
+tail -f /var/log/cron
+
+* * * * * * 分0-59 时0-23 日1-31 月1-12 周0-7 *代表任何时间点
+5 * * * * 1 每周一hh:05  * 5 * * * * 每天5:mm
+*/5 4 * * * * 每隔5mins,只在04:mm 
+0 8,12,16 * * * 每天8:00和12:00和16:00
+0 5 * * 1-6 周一到周五5:00  1-59/2 * * * * 奇数分钟  0 23-7/1 * * * * 23:00到次日7:00,每隔1小时  -限定区间
+0 0 1,15 * 1 每月1号和15号00:00 每周一00:00
+59 1 1-7 4 0 cmd 四月1-7号和每逢周日的1:59  59 1 1-7 4 * test `date +\%w` -eq 0 && cmd 四月第一个周日的1:59
+0 */2 * * * cmd 两小时运行一次
+*/1 * * * * cmd  */1 * * * * sleep 30s;cmd 每半分钟执行一次
+
+at 定时任务执行一次
+service atd start
+at now +2 minutes 两分钟后执行 ctrl+d结束输入
+at 2:30 am Friday <at-jobs.list  at 2pm January 15 -f at-jobs.list
+hh:mm  hh:mm yyyy-mm-dd  hh:mm[am|pm] [month] [date]
+atq命令 查询at定时任务
+
+watch 周期性执行命令,实时监测命令运行结果
+-n 间隔时间,缺省2s  -d 高亮显示有变动的地方
+
+usleep 30 #暂停30微秒,更细粒度的时间  sleep 3 #暂停3秒  sleep 3h 
+
+一些用户管理命令
+whoami  who  who -q  users  查看当前登录用户   
+groups uname 查看用户所在组
+useradd user1  
+useradd -r -g gname uname r系统用户(不可用于登录)
+passwd user1 修改用户密码,缺省为当前用户  echo "user11" | passwd --stdin user1
+useradd|usermod -d /home/maindir uname
+usermod -c comment uname  usermod -g newgname uname
+usermod -l newuname olduname
+userdel uname -r:同时删除用户家目录
+touch /etc/nologin 禁止非root用户登录
+groupadd gname  groupadd -g gid ganme
+groupmod -n newgname oldgname  groupmod -g newgid gname
+groupdel gname
+gpasswd -a uname1 gname 添加用户到组
+/etc/group 用户组信息 gname:pswd:gid:users(省略uname=gname的user)  /etc/gshadow 用户组密码
+/etc/passwd 所有用户信息 uname:pswd:uid:gid:comment:homedir:shell(接收指令的接口如/bin/bash)
+/etc/shadow uname:encrypted pswd 所有用户密码
+
+chown uname file  chown uname:group file
+chown -R uname:group /usr/local/mysql R:递归处理目录及子目录 之后目录再新建的文件无效
+chgrp -R group dir/
+
+压缩解压相关命令
+zip new.zip source -r压缩目录  unzip file.zip
+gzip file #不保留源文件  gzip -c file > new.gz #保留 -c将gzip的输出送至stdout
+gzip -r dir #压缩目录下所有子文件  gunzip -r dir #解压目录下.gz 
+gzip -d file.gz  gunzip file.gz  解压
+bzip2 file #不保留源文件 -k保留  
+bzip2 -d file.bz2  bunzip2 file.bz2 #解压 -k保留压缩文件
+tar -cvf new.tar dir #create a archive  view  然后再gzip或bzip2压缩
+tar -xvf xx.tar #extract files 
+tar -zcvf new.tar.gz source #gzip-compress /tmp/new.tar.gz
+tar -jcvf new.tar.bz2 source1 source2 #bzip2 the archive
+tar -zxvf new.tar.gz -C /tmp/ -C指定解压位置
+tar -ztvf xx.tar.gz 查看压缩包内文件但不解压
+zcat file | more zcat解压gzip文件到stdout 相当于gzip -dc
+bzcat解压bzip2文件到stdout
+
+date # UTC日期时间  -u UTC  
+-d '2007-09-01 17:30:24' 显示非现在的时间 -d "2007-09-01 17:30:24 + 10days"
+date +%j  date +'%F %T.%N %Z'
+%j 从今年的01/01到今天逝去的天数 %s 从1970/01/01到现在逝去的秒数 %N 纳秒级unix时间戳
+%F即%Y-%m-%d %T即%H:%M:%S %B 月份名称 %Z 时区名称
+%w 0-6dayOfWeek %k 0-23hour
+TZ=EST date #更改时区为EST  zdump EST #根据时区输出时间
+date --date='6 days ago'  date --date='1 month ago'#4 weeks
+
+time cmd 获取命令执行时间 
+
+read -p "please input:" var1 var2  接收stdin(fd0) 无var就赋值给$REPLY
+-p "prompt info"  -t 30 等待超时秒数  -s 隐藏输入数据  -n 1 限制输入字符数,只对一个变量有效
+-a arrvar  
+while read line 
+do
+	...
+done <file # 逐行读取文件 read也可以在循环体内
+while read line 
+do
+	...
+done < <(grep ... file|grep ...)
+{               
+	read line1
+	read line2
+} <file #  文件每行读到变量
+while read field1 filed2 
+do
+	...
+done </etc/passwd # 逐行读取文件,分字段 IFS=:
+while read record[i] 
+do
+	((i++))
+done <file # 逐行读取文件到相应数组元素
+cat file | 
+while read line 
+do
+	...
+done # 逐行读取文件
+while read line
+do
+	...
+done # 循环读取stdin
+
+sed 流处理编辑器 
+依次读取每行到临时缓冲区 屏幕输出,不改变原文件
+行定位 行号x x,y(范围) x!(排除) x,y!(排除范围) x~y(x起始,间隔y-1行)
+       正则/keyword/ /k1/,/k2/(范围) x,/k1/(范围)
+	   $最后一行
+动作 p打印 d删除行 a追加行 i前插行 c替换整行 
+     s替换每行第一个,g全部 q:到此行停止 r:读另一文件,w写 
+option n只显示动作处理的行,常和p一起用 i修改文件内容 e多个动作
+sed -n '2p' file  
+sed '2,4d' file  sed '/^$/d' file
+sed '2a text' file  sed '2a \ ===\n===' file #句首加whitespace 
+sed -i '4s/oldstr/newstr/g" file 
+sed -e 's/str//g;4c text' file  sed -e .. -e .. file
+sed 's/orgin/&target/g' file &即orgin
+sed -n '{n;p}' file #打印偶数行  sed -n '{p;n}' #打印奇数行 sed -n '1~2p'
+echo a111b | sed -n '/a1\+b/p'
+sed "s%aa%%" 相当于 sed 's/aa//'
+sed '    # 删除/* COMMENT */
+/^\/\*/d
+/.*\*\//d
+' file.c # 相当于 sed '/^\/\*/,/.*\*\//d' file.c
+
+awk 文本处理
+依次将每行信息存入内置变量,判断条件执行动作
+awk '条件1{动作1}条件2{动作2}' file    
+内置变量 $num:每行字段值 $0:整行 $ENVIRON["var"]环境变量关联数组
+  NR:记录行号 NF:每行的字段总数 FILENAME:正在处理的文件名 FS:分隔符,可设置=":"
+设置分隔符 BRGIN{FS=":"}  options -F ':'
+条件 $4>=60 /keyword/
+awk 'BEGIN{print "a table"}{printf $2"\t"$3"\n"}END{print "a table"}' tbfile
+awk '{print "user:"$1,"uid:"$2}' tbfile 
+awk '{printf("line:%3s col:%s\n",NR,NF)}' tbfile 3:宽度
+awk '$1~/^a.*/{print $1 " " $2}' tbfile 字段正则匹配 !~不匹配
+awk 'BEGIN{count=0}$1!~/^$/{count++}END{print count}' 统计非空行
+awk '$3>100{print $1}' tbfile  awk '/err/{print $1}' tbfile 查找
+awk '{if($2=="A"){print "A";exit 2;}}' file1
+awk 'BEGIN{cnt=0}{if($2>100)arr[cnt++]=$1;}END{for(i=0;i<cnt;i++)print i,arr[i];}' file1 
+awk '{arr[$1]=$2;}END{for(i in arr)print i,arr[i];}' file1 关联数组
+awk NR==3 tbfile 打印第三行  awk '{print $NF}' tbfile 打印最后一列
+awk -F ' ' '{ print $2,$3 }' 设置分隔符
+
+echo "HELLO" | tr 'A-Z' 'a-z' 替换,大写转小写
+echo "hello123" | tr -d '0-9' delete
+echo "aacccdd" | tr -s a 挤压连续的a成1个  echo "aacccdd" | tr -s a b 替换连续的a成b 
+echo ".aa1"|tr -c '.[:digit:]' '\n' 替换除了逗点,数字之外的字符为空行 \\n
+echo "name" | tr -d -c 'a\n' 删除除了a,\n之外的字符 c:complement
+
+sort file  -n按数字排序,默认字母序,比较ASCII码 -r降序 -f转换为大写再比较
+sort file | uniq -c 去除连续的重复行 c:统计重复行数
+sort -t ":" -k "3,3" /etc/passwd t指定分隔符,默认制表符 k排序参照的字段,第n字段到第m字段
+
+wc file 统计文本的行/单词/byte数目 
+-l -w -c -m字符 -L输出最长行的长度
+cat file | tr -cd  "a" | wc -c 统计文件中指定字符数量
+
+fmt 所有非空白行设为近似等长 -s拆开字符数过多的行 -w n每列最大字符数为n
+
+(printf "PERMISSIONS LINKS OWNER GROUP SIZE MONTH DAY HH:MM PROG-NAME\n" \
+; ls -l | sed 1d) | column -t # column 插入tab制表
+
+cut 截取文件的列
+cut -f 2,4 -d ":" file d分隔符,默认制表符 f字段选取
+cut -c 3-5,8 file 提取第3,第4,第5和第8个字符 c截取字符
+cut -b -3,5,7- 提取开始到第3个,第5个,第7个到结尾的字节 b选定字节
+cut -d'
+ ' -f3,7,19 testfile 
+
+paste file1 file2 合并文件内容,同一行拼接
+join file1 file2 带有相同标记字段(通常是数字)的行进行拼接,文件事先按标记字段排序
+
+md5sum dir/* >>dbfile # checksum
+iconv -f UTF8 -t UTF16 转换文件的encoding(character-set) from to
+
+seq 5
+seq -s : 5 # 1:2:3:4:5
+seq beg end  seq beg interval end
+
+uname -o -r -n 查看操作系统类型,内核版本,主机名$HOSTNAME -a 几乎所有信息
+cat /etc/issue  lsb_release -a 查看linux发行版本
+getconf LONG_BIT  uname -m  file /bin/ls 查看系统位数
+arch 查看体系结构
+id -nu 查看当前用户名 $USER
+
+free -m 查看内存MB b:字节 k:KB g:GB
+系统使用内存used=total-free 
+包括应用使用内存,cache(缓存打开过的文件,LRU:最少使用的文件优先淘汰),buffer(缓存目录项和inode,FIFO) 
+
+df -h 查看磁盘使用情况 
+h:1024进制适当转换KB t ext4:指定文件系统为ext4 x ext4:除ext4以外
+
+ps aux USER PID %CPU %MEM STAT COMMAND
+S 进程处于睡眠状态,等待某些事件发生(用户输入或系统资源可用) +属于前台进程组 s包含子进程
+ps -ef PID PPID COMMAND
+
+top 查看进程,监控系统健康状态(主要看CPU和内存的空闲程度) 
+top -n 2 -b n:退出前屏幕刷新2次 b:非交互非全屏运行 交互P:占用CPU百分比排序 M:占用内存
+
+jobs 查看后台运行的进程 job-number 任务被当前shell维持,进程被系统维持
+
+fg 将后台运行进程切换到前台运行
+
+wait 挂起脚本直到后台运行任务终止 
+cmd &; wait 防止出现孤儿进程(父进程退出后仍在运行,过继给1号进程init)
+cmd &; cmds; wait 后台进程有stdout时脚本挂起直到按回车,除非它在父进程前退出 
+
+cmd & 命令放置后台执行,不占据终端,放入作业队列  命令执行时ctrl+z  loop &
+
+pidof sh sh1 获取执行此命令的进程组PID
+
+source file 当前脚本导入其他(通用)脚本,which append to the script  
+. file 
+
+hostname -I 查看内网IP
+ip addr 查看IP
+curl -s http://ipecho.net/plain -o file 获取出口IP(访问外网) 
+cat /etc/resolv.conf DNS地址配置文件
+host google-public-dns-a.google.com  ipcalc -h 8.8.8.8
+yum install bind-utils  dig -x 8.8.8.8
+dig www.isc.org +short
+SOA记录(Start of Authority) DNSZoneFile 
+NS记录(Name Server) 指定该域名由哪个DNS服务器解析
+tcpdump -np -i eth0 查看interface数据包
+ssh远程登录命令
+
+nmap 检测主机开放的端口
+nc -lvp 2005 监听2005端口 被攻击设备主动连接,并将/bin/bash传给黑客,通过"后门"操作,不通过界面登录不留下痕迹
+
+fping 主机扫描 向批量目标主机并行发送ping请求,检测存活情况
+wget http://www.fping.org/dist/fping-4.0.tar.gz 
+ll /usr/local/sbin/fping  fping -v
+fping 172.16.254.254 111.175.211.65 -a:alive -u:unreachable  fping -f iplist_file
+fping -g 10.10.140.1 10.10.140.15  fping -g 10.10.140.0/24  g针对网段
+
+hping 主机扫描 支持TCP/IP数据包的组装 
+ping,fping使用ICMP协议 ICMP数据包被屏蔽
+http://www.hping.org/ download wget
+file master  unzip master  
+error:pcap.h not found  yum install -y libpcap-devel  ln -sf /usr/include/pcap-bpf.h /usr/include/net/bpf.h
+error:-ltcl not found  yum install tcl-devel
+hping -h  hping -v
+hping -p port -S ip 对特定端口进行tcp探测 -a伪造IP发送SYN,模拟SYN攻击,被攻击方得不到回应,系统资源被消耗,网卡流量拥堵,响应慢
+
+SYN_RECV状态后,backlog队列增加记录,等待回包,收到ACK后删除该记录 
+backlog满,不能接受更多的连接请求 被攻击方重传SYN,等待状态多,占用资源 被攻击方回包,占用带宽 
+sysctl 在内核运行时动态修改内核的运行参数,临时设置 w改变sysctl变量 /etc/sysctl.conf永久设置
+增加backlog长度 sysctl -w net.ipv4.tcp_max_syn_backlog=2048 与内存有关
+减小重传次数 sysctl -w net.ipv4.tcp_synack_retries=3  sysctl -w net.ipv4.tcp_syn_retries=3
+SYNcookies sysctl -w net.ipv4.tcp_syncookies=1 发现DDOS攻击,不再等待回包
+其他防攻击策略
+sysctl -w net.ipv4.icmp_echo_ignore_all=1 忽略icmp请求 无法ping/fping通 
+DDOS攻击 服务同时收到很多伪造的正常请求,超出响应能力,开始拒绝
+
+traceroute 追踪数据包路由途径 路由扫描
+发送IP数据包 TTL=1,2,3... 直到IP数据包达到最后一个路由器 linux:UDP报文 windows:ICMP包
+TTL(Time To Live):IP包在网络中的生存时间 可以转发的最大跳数
+每经过一个路由器,TTL-1再转发,TTL为0路由器会丢弃IP包,返回一个ICMP数据包,避免IP包在网络中无限循环
+yum install -y traceroute
+traceroute www.baidu.com  路由ip 主机发送3个包给该路由的延迟时间 
+traceroute -nI www.baidu.com  n不解析ip地址 I使用icmp协议(默认udp) 
+traceroute -T -p 80 -n www.imooc.com T使用TCP协议 侦测到最终的目标主机
+mtr www.baidu.com 测检测主机到每一个路由的连通 路由扫描 
+
+nmap 批量主机服务扫描
+yum install -y nmap
+nmap -sP 172.16.254.254/24 检测主机的存活 P:ICMP协议,ping扫描
+扫描出主机开放的端口及服务等 -p 0-30000:指定端口范围
+nmap -sS 172.16.254.253 S:SYN,不建立完整TCP连接,高效且不易被检测
+nmap -sT 172.16.254.253 T:TCP,三次握手,可以模拟真实用户请求
+nmap -sU 172.16.254.253 U:UDP,发送UDP报文给目标主机,相应端口未开放就会返回ICMP消息,linux内核限制单位时间内返回次数
+
+ncat 批量主机服务扫描
+yum install -y nc
+nc -v -z -w2 172.16.254.253 1-150 扫描出主机开放的端口及协议类型等 w:超时时间
+nc -v -z -u -w2 172.16.254.253 1-50 u:基于udp协议,默认tcp
+
+pkgname.rpm 源码包编译后的二进制包 有依赖
+rpm -qa|grep 包名  rpm -q 包名  查询某rpm包是否安装 
+rpm -qf /bin/ls 查询文件所属rpm包
+
+源码包安装rpm软件
+tar -zxvf nginx.gz.tar  ./configure --prefix=/usr/local/nginx  
+make  make install
+ln -s exefile /usr/bin/exefile  echo $PATH
+vim ~/.bash_profile PATH
+
+dd 按块拷贝文件
+dd if=/dev/hdb of=/dev/hdd bs=1 count=1 # inputfile缺省为stdin bytes指定块大小 count指定块数量
+skip=3 拷贝前跳过inputfile的3blocks  seek=4 拷贝前定位到outputfile的4blocks
+cbs=1 conversion-bytes 每次转换字节数  conv=unblock 每一行长度都为cbs,不足部分空格填充
+
+stty 设置终端显示 脚本中stty影响命令行 
+stty erase ^H read键入时使用退格键删除尾字符
+stty -echo 关闭键入显示 stty echo 恢复
+stty -icanon 结束输入如果设置min无需按回车键 stty icanon 恢复
+old_tty_setting=$(stty -g)  stty "$old_tty_setting"
+tty #输出当前终端名
+
+tput sgr0 重置终端颜色
+
+setterm -cursor off
+setterm -bold on
+
+stdin,文件描述符0,键盘 stdout,1,屏幕 stderr,2,屏幕
+重定向 >覆盖 >>追加 
+command >file command <file # 1> 0<  
+command &>file # stdout,stderr
+fd>file fd>&fd2 fd默认1  fd<file fd2<&fd fd默认0,exec,fd的输入源
+command &>filename stdout和stderr都重定向到文件
+command >&2 命令的stdout重定向到stderr
+exec 3<> file1 #assign fd 3  read var1 <&3 
+date1 2>err.log  err=err.log; date1 2>>$err  date1 2>/dev/null  
+ls -yz >>log 2>&1 stderr重定向到stdout的指向
+ifconfig>>file1 2>>file2 标准输出和错误输出分别写入两个文件
+cat /dev/null >file  : >file  >file  清空文件内容
+cmd-with-stdin < <(cmd-with-stdout) 相当于pipe的作用 subshell中变量是local的
+cmd-with-stdout > >(cmd-with-stdin) 
+{             
+	echo "text"
+} >filename # 输出重定向到文件
+
+loop-construct done | sort
+
+bash通配符 完全匹配 不匹配. 常用于文件名扩展 ls,find,cp命令不支持正则
+*任意内容 ?任意一个字符 其中一个字符[ab] [a-z] 排除[^0-9] [!0-9] 
+{pattern1,pattern2} 匹配其中一种
+
+eval cmd_var 变量取值一次后执行命令
+eval echo "\$$#" # $#取值  eval var=\$$a # $a取值 
+eval array_member=\${arr${var1}[var2]} # arr1[2] ${arr1[2]}  
+eval ${z}=\"${x} ${y}\" #x=1;y=2;z=a  eval ${z}+=\"${x} ${y}\" #x=1;y=2;z=a;a=1 
+
+exec cmd 执行时终止当前shell进程,以新进程代替原进程,进程的PID不变  cmd 产生子进程
+
+trap 'cmd|func' signal # 当前脚本收到信号后执行命令
+EXIT,exit产生的信号 INT,ctrl+c产生的信号 ERR,退出状态非0时产生的信号
+trap "rm -rf \"$roundup_tmp\"" EXIT INT
+
+xargs cmd 给另一命令传递参数的过滤器 读取pipe或stdin 缺省命令echo 可作用于grep
+-l n 每次从输入读取n个参数传给另一命令,缺省1个  -n num 限制每次传送的参数个数 
+-p 每次传送参数,执行另一命令时进行提示  -P n 并行运行n个进程  
+-t 在命令执行前打印它,输出在stderr
+-I 和占位符{}有关 ls . | xargs -i -t cp ./{} dstdir 将当前目录下所有文件拷贝到dstdir,防止embedded-whitespace
+
+set v1 v2  set -- "ab" 123  给位置参数变量分配值
+set -- -a 123 # set '-a'参数被解读为选项
+set a\ b c d\ e # 3 paramters
+set #查看所有变量 set -- #unset所有位置参数变量 
+set -u # 使用未定义变量会报错
+set -e # 退出脚本如果以下的命令退出状态非零
+set -x # 显示脚本的运行过程 +每行命令 set +x取消
+set -o pipefail # pipeline返回值是最右退出状态非0命令的返回值,有一个命令出错就非0 pipeline返回值默认最后一个命令返回值
+set -o # 查看所有相关设置
+set -a # 之后有修改的变量都输出为环境变量(能在cmdstr中使用的变量) bash -c "${cmdstr}" 
+unset var
+
+shell 命令解释器 接收命令的接口,解释命令给内核  echo $SHELL  /etc/shells#支持的shells  
+bash(Bourne-Again Shell) shell的一种(语法分类) linux主要用bash,Unix用csh
+login shell(command-line)  script shell  $SHLVL不同
+sh 从/bin/bash进入/bin/sh exit  bash 进入子shell  bash x.sh 无需#!/bin/bash和chmod,是sh x.sh的增强版
+bash -c 命令从字符串中读取 -version
+
+#!/bin/bash
+command1
+command2
+#comment
+: <<COMMENTBLOCK # 注释块中有${var}的话需要'COMMENTBLOCK'
+echo "This line will not echo."
+COMMENTBLOCK
+
+bash变量  
+varint=10 varstr=/var/log var1=$var2 声明并赋值/重新赋值 生命周期为当前会话 global作用域
+""表示空字符串
+s4=${s1}abc$s2ab"$s3" 字符串拼接
+var=$(date) echo `date` for i in $(cmd) 命令的输出能作为变量值,另一命令的输入,for-in-list  
+ subshell 去除换行,用双引号一般能恢复 var=`for-loop|while-loop` $()能嵌套
+loop和subshell中的变量是local的 作用域局限于结构内 同名local变量屏蔽global变量
+变量未定义时赋默认值echo ${var1=$var2} 变量未定义或为空时赋默认值: ${var:=$var2}
+获取变量值 $var ${var} 一般加""
+
+${#strvar} 变量字符数
+${strvar^} ${strvar^^} #第一個/所有字符转大写 ${var,} ${var,,} #小写
+${var#pattern} 从左端最小化匹配(尽可能少的匹配),去除匹配的部分,通配符 echo ${var#a*b}  t=${var#a*b}
+##从左端最大化匹配 %从右端最小化匹配 %%从右端最大化匹配
+${str:pos} ${str:pos:len} ${str: -pos} 提取子串
+${strvar/substrPattern/replacement} 替换第一个匹配子串 ${var//Pat/Rep} 替换所有匹配子串 通配符
+${strvar/#substrPattern/replacement}替换前缀匹配子串 ${var/%Pat/Rep} 替换后缀匹配子串
+字符串长度 echo `expr length $s`  echo `expr "$s" : '.*'`
+匹配子串的长度 echo `expr match "$s" '[A-Z]*'`  echo `expr "$s" : '[A-Z]*'` RE
+前缀匹配子串 expr match "$str" '\($substrpattern\)'  后缀匹配子串 expr match $str" '.*\($substrpattern\)'
+expr index "$str" $substr  expr substr $str $pos $len
+
+反斜杠\ 转义符 special meaning<-->literal meaning
+行尾 \ 注释掉\n 命令可多行键入,直到结束标志\n read的stdin也可以(-r禁止)
+" 保留大部分特殊字符的字面意思,如换行和空格  ' 保留所有特殊字符的字面意思  引号防止shell的解读
+"$var"部分引用,有变量替换 '$var'完全引用,无变量替换
+$var是${var}的简化形式,$var在有些地方会引发错误
+hello="A B  C   D" echo $hello# A B C D echo "$hello"# A B  C   D 空格能分隔
+if [[ "$(du "$My_File1")" -gt "$(du "$My_File2")" ]]
+
+declare -a arr i整型变量,可直接var=$var+1 A关联数组 x环境变量 r只读变量,不可修改/删除/取消r属性 
+declare -i num=2 声明的同时赋值  declare +i num 取消变量属性
+declare -p var 查询变量属性
+arr[1]=a arr=(a b c) arr=([1]=a [3]=b) 隐含declare -a arr  factors=($(factor 18))
+${arr} ${arr[1]} ${arr[*]} 获取下标为0/1/所有的元素
+${#arr}数组首元素字符数 ${#arr[*]}数组元素个数,@
+for ele in ${arr[@]} 数组遍历
+
+内部变量builtin bash预定义变量
+$$ 当前运行脚本的PID $BASHPID 当前bash实例的PID 
+在subshell中$$与$BASHPID不同 (cmd1; cmd2)为subshell 管道也是subprocess
+$!后台最后运行的进程的PID $PPID当前进程父进程的PID
+$PATH $PWD $OLDPWD $HOME 
+系统信息变量 $OSTYPE $BASH_VERSION
+$GROUPS当前用户GID的数组 $PS1登录提示符 $UID当前用户ID,只读变量
+$LINENO脚本中所在行的行号 $SECONDS脚本程序运行的第i秒 $TMOUT设为非零,脚本在n秒后退出
+$IFS内部字段分隔符,默认whitespace 影响for-in-list的划分 IFS=$'\n'
+反转位置参数 OIFS=$IFS;IFS=:  until [ $# -eq 0 ]   k=$1:$k;  echo "k= "$k""#或echo "k=" $k  shift
+$PIPESTATUS用管道连接的命令的退出状态的数组
+
+环境变量 作用域为当前shell和subshell childprocess继承环境
+export var  export var=val # 实际上declare -x declaredVar
+env # 查看环境变量
+
+位置参数$1 $2 ${10} 位置参数个数$# last位置参数${!#} 脚本调用时用的文件名$0
+所有位置参数 show as a word/separate words "$*" / "$@"
+shift $1<-$2 $2<-$3 ... $n掏空  shift 3 #左移3位  $#,$*随之改变
+  
+退出状态 $? 成功执行的命令返回0 脚本和函数返回last命令的退出状态 运算式中值或变量为0返回1
+exit n 无条件终止脚本程序且退出状态为n(0-255)
+! cmd 反转退出状态
+
+[[ a operator b ]] 扩展的test命令 []的增强版
+[[ 1 -eq 2 && -n "`echo true 1>&2`" ]] 
+[[ hello == hell? ]]  [[ 3 =~ [0-9]+ ]] RE匹配
+[[ "$dec" -eq "$hex" ]]  && || ! 
+[[ $str == z* ]] #pattern matching  [[ $str == "z*" ]] #literal matching
+[[ "$s1" < "$s2" ]]  [[ "$s1" != "$s2" ]] 
+
+[ -opt sth ] [ a operator b ]  test -opt sth
+[ -e "$file" ] echo $? 判断文件是否存在 -d是否为目录 -f是否为普通文件 -x是否为可执行文件
+[ -e ./aaa ] && echo yes|| echo no 短路 条件判断时未必用if
+[ -w /file ] && echo yes|| echo no 判断文件是否有写权限 
+[ ./file -ef ~/filehl ] inode是否一致  [ file1 -nt|ot file2 ] 修改时间新或旧
+[ $intnum -ge 20 ] -eq -ne -gt -lt -ge -le
+[ -z "$str" ] string变量为空返回真  [ -n "$str"] 非空返回真  [ ! -z "$str" ]
+[ "$str1" = "$str2" ] [ "$s1" == "$s2" ] [ "$s1" != "$s2" ] 
+[ "$str1" \> "abc" ]
+[ -n "$var" -a "$var" -gt 2 ] 多条件 -a逻辑与 -o逻辑或  [ ! ... ] !逻辑非  [ ... ] && [ ... ]
+[ thing ] 空值,未定义/值为空变量的变量值 $?=1  
+test -t 1 fd1在终端打开返回真
+
+if judgement1 
+then           # then cmd
+	...
+elif judgement2
+	...
+else
+	...
+fi
+
+if command; then
+	...
+fi
+
+case "$v" in
+   "v1") echo "v1";; # break
+   *[!0-9]) echo "11a";& # 执行下一条)后语句
+   a|b) 
+		echo "a or"
+		echo "b" ;;& # continues to the next pattern (bash4)
+   *) echo "other";;
+esac
+
+while judgement # command funcall
+do
+	...
+done
+
+while true; do # while :
+	... 
+done
+
+循环控制命令 continue  break  continue n 从n层循环继续  break n 跳出n层循环  
+
+until judgement # until ((var>LIMIT))
+do
+	...
+done
+
+for i in 1 2 abc "a c" # for i in $(cmd)
+do
+	...
+done
+
+for i in {1..10}; do cmd1; cmd2; done;
+获取序列值 {beg...end}间隔为1 echo {a...z} {40..60..2} {60..40..2} 
+`seq 10`
+
+for i  # 缺省in "$@"
+do
+	echo $i 
+done
+
+for file in ./*; do # *txt
+	...
+done
+
+for ((i=0;i<=10;i++));do
+	...
+done
+
+PS3='Choose your favorite vegetable: '   #打印带编号的列表和提示语PS3 
+select v in "beans" "carrots" "potatoes" # select v 使用$@
+do 
+ command... 
+ break #否则将一直循环
+done
+
+[function] func()
+{ 
+	var=val # global,作用域在函数被调用后全局可用
+	local var=val # local,作用域局限于函数内(以及调用的子函数中) 同名local变量屏蔽global变量
+	caller 0 # 函数调用时会输出调用行
+	return 1
+} 
+func param1 param2 
+recursion(){
+	
+	f2(){ echo 1; } # global
+	
+	a="$1" # 函数参数,local作用域
+	
+	echo $FUNCNAME # local,internal var
+	
+}
+recursion 3 # 函数调用等价于命令
+函数可以定义在if结构,&& ||结构中,未必被实际定义
+not_empty_func(){
+  : # null command
+}
+
+$RANDOM 内部函数 随机生成0-32767的整数
+number=0   # between two limits, more simple way [6,30] rnum=$((RANDOM%25+6))
+while [ "$number" -le $FLOOR ]
+do
+  number=$RANDOM
+  let "number %= $RANGE" 
+done
+RANDOM=$SEED 每次设置相同的seed,得到相同的随机序列 RANDOM=$$
+echo | awk '{srand(); print rand()}' 随机生成0-1的浮点数
+随机临时文件名(唯一性) suffix=$(date +%s) suffix2=`mcookie`再截取 suffix3=$$
+fname=$prefix.$suffix  fname2=$$.xx 唯一性
+随机整型数 date +%N | sed -e 's/000$//' -e 's/^0//'
+
+let "x=x+y+1"  let "x+=5"  let "x++"  let "n1=((++n))" 
+let "z=5**3" #5^3  let "a<<=3"   let "b=a<7?7:11"
+let "oct=032"  let "hex=0x2d"  let "bin=2#101"  
+
+echo $(($a+1))  : $((a=$a+1))  a=$(($a+1))  echo $((a=$a+1))  echo $((0x9abc)) 
+
+((var++)) ((var1>var2)) ((a=b+1,a=b<1?0:1)) ((0&&1))#逻辑与,按位与& 
+
+expr命令
+expr 3 + 5  expr $n % 3  expr 5 \* 3 # 5*3  expr 2 = 3 #0  expr 10 \> 1 #1  expr 10 \<= 1 #0
+
+
+echo "1.1*2" | bc 
+echo "scale=2; 5/3" | bc 有时scale设置小数位数
+2,8,16进制转为10进制 echo "ibase=$ibase; $number" | bc 16进制数需sed去掉0x,tr小写转大写 
+bc -l << EOF # sine of 3.14/6 radians 
+scale = 9
+s(0.523333) # sqrt(15)也可
+EOF
+bc -l
+
+echo "7 8 * p" | dc #56 stack
+echo "10 16 o p" | dc #A 十进制转换为其他进制
+
+factor 150 因数
+
+builtin bash内置命令 执行更快 外部命令fork off a subprocess
+
+pushd dir 目录入栈并进入该目录 popd 目录栈出栈并进入栈顶目录 触发dirs 打印目录栈,$DIRSTACK
+
+getopts 可识别 -opt arg -opt1opt2 -optarg
+while getopts ":abc:de" flag ; do
+	case $Option in
+		a) echo " ${OPTIND} ${OPTARG}" ;; 
+getopts隐含变量 $OPTIND	optIndex $*中下一个要处理的opt的位置 $OPTARG optArgument opt后相应的参数
+
+A keyword is a reserved word, token or operator
+
+here document
+command <<EOF
+zoe
+EOF #必须顶格
+
+Special Character
+echo hello; echo there 
+
+${#*} ${#@} 位置参数个数
+
+: ${var1-123} : ${var:-"abc"} 变量未定义时/未定义或为空时使用默认值
++ :+ 变量定义时/定义且非空时使用可选值
+? :? 变量未定义时/未定义或为空时终止程序并输出错误信息,errmsg可省略
+a=${!varprefix*} a=${!varprefix@} 获取此前缀的变量名  b=${!a};echo $b #a需要是保存变量名的变量
+
+简化代码
+: ${1?"Usage: $0 arg1"} 
+dir=${1-`pwd`}
+
+{ a=1; } 匿名函数,定义即调用,变量不能用local
+echo \"{These,words,are,quoted}\" {}简化代码
+echo {file1,file2}\ :{\ A," B",' C'}  cat {file1,file2,file3} >file
+
+echo $[$a+$b]
+
+$_ 之前执行命令的最后一个参数
+
+cmd1="echo abc"
+$cmd1 # 执行变量中的命令
+
+echo ~+ $PWD  echo ~- $OLDPWD
+
+for a # The 'in list' missing, therefore the loop operates on '$@'
+do
+ echo -n "$a "
+done
+
+for i in 1 3 3
+{  echo "$i"; echo "0-0"; }
+
+while echo "abc"
+      a=1
+      [ "$var1" != end ] # 3 conditions but only the final one’s exit status counts
+do
+
+while IFS=: read name passwd uid gid fullname ignore # IFS is local
+do
+  echo "$name ($fullname)"
+done </etc/passwd   # I/O redirection.
+
+declare #打印所有变量
+declare -f # 打印 all function above.
+foo (){
+declare FOO="bar" #FOO is local
+}
+
+v1=` <file1` #Set v1 to contents of file1
+
+: <<TESTVARS   
+${HOSTNAME?}${USER?}${MAIL?}  
+TESTVARS
+: ${1?"Usage: $0 args"} #确保传入脚本的参数个数
+sh_to_run.sh sysmonitor.sh
+
+cd dir1 && tar cf - .  进入dir1,压缩dir1到当前目录 
+cd dir2 && tar xpvf -
+cd - # cd $OLDPWD
+
+shopt -s globstar  for fname in ** # 递归获取文件树 bash4 for filename in * 当前目录下文件
+shopt -s cdspell 允许cd目录名的最小误拼写如cd /rooi -u:unset
+
+some builtins
+: 空命令,do nothing
+true 空命令 do nothing 退出状态为0 false
+help cmd
+logout 退出login-shell
+enable 禁止或允许shell-builtin  -n cmd禁止  -a列举所有builtin
+
+词频统计脚本
+$# -ne  ! -f "$1" 限制参数
+cat "$1" | xargs -n1 | tr A-Z a-z | \
+sed -e 's/\.//g'  -e 's/\,//g' -e 's/ /\
+/g' | sort | uniq -c | sort -nr
+exit $?
+
+颜色显示 runit.git/roundup red=$(printf "\033[31m")
+
+vdir 相当于 ls -l
+readlink linkfile 显露原文件
+
+cpio归档
+find srcdir -depth | cpio -admvp dstdir 拷贝目录树
+a读取文件后重置access-time d如有需要cpio自行建立目录 m保留文件modification-time
+v:verbose p:copy-pass,略过备份步骤
+rpm2cpio < xx.rpm > xx.cpio # Converts rpm archive into cpio archive
+cpio -d -F xx.cpio -i # F归档文件名 i:copy-in mode,解压
+
+load average 最近1分钟,5分钟,15分钟的平均负载 load:进程队列的长度,等待和占用CPU的进程数,1个核满是1,2个核满是2
+
+groff -Tascii -man file | less # manview
+man只实现搜索查找 解压由gunzip处理 格式化由groff处理 显示由less处理
+
+getopt
+set -- `getopt "abcd:" "$@"` # -a -b -> -a -b  -abc -> -a -b -c  -d arg -> -d arg  -darg -> -d arg
+while [ ! -z "$1" ]  case "$1" -a -d $2  shift
+
+yes命令
+yes | rm -r dir # continually output yes, has same effect as rm -rf dir
+yes custom_output
+
+printenv | grep HOME # 显示所有环境变量
+
+cat log* | sort | tee chkfile | uniq >resfile # tee, read from stdin, write to stdout and file
+
+sync # flush缓冲区,强制写入磁盘
+
+m4命令
+echo "len($str)" | m4  echo "substr($str,4)" | m4 
+echo "incr($num)" | m4  echo "eval($num/3)" | m4
+
+正则表达式
+包含模式就匹配,最大化匹配(尽可能多地匹配)
+元字符 
+\d(数字)  .(匹配除\n之外的单个字符)  ^(匹配行首)  $(匹配行尾) 
+\w([0-9a-zA-Z]和下划线)  \W([^0-9a-zA-Z])  
+限定符 
+*(重复0次或多次)  +(1次或多次)  ?(0次或1次)  
+{n}(重复n次)  {n,m}(重复n~m次,m缺省为无限)
+escape: 'ab*' 'ab\+' 'ab\?' '[0-9]\{2,3\}' 
+\转义符,转回字面意义 \.
+[]范围内一个字符 [abc] [0-9a-zA-Z] 
+[^x]取反,除了x以外的任意字符 [^0-9]
+()分组捕获 $1或\1分组1 '\(...\)' 
+分隔符：/
+分枝条件: |逻辑或 '\(false\|true\)'  
+单词边界标记 '\<word\>'
+Extended REs
+
+POSIX字符类 可用在正则和通配符 [[:digit:]] [:alpha:] [:lower:] [[:space:]]
